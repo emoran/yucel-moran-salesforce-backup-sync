@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="413b0339-fbf2-4c84-bceb-98714c77c424" >
+		<salesforce:basic-connection username="yucelmoran@developer.com" password="nea4fuch!POUF8wee" securityToken="Sv4SAD33k4t2BhTIQYZay5yfC" />
+	</salesforce:sfdc-config>
+	<flow name="salesforce-metadataFlow" doc:id="5f672a80-e427-4b37-bd1b-b5d9c57dfa1a" >
+		<salesforce:describe-global doc:name="Describe Objects" doc:id="2c465769-2a21-4d62-ae37-897b1a471010" config-ref="Salesforce_Config"/>
+		<ee:transform doc:name="filter Custom Objects" doc:id="f476e6e7-6956-40a5-b266-c783eb75a75e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload.sobjects filter $.custom == true]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="cafffb19-7f6f-4364-bf99-f91859f16cb3" message="Total objects to Backup: #[payload.size()]"/>
+		<foreach doc:name="Loop over each SObject" doc:id="4e21ef5c-9246-463c-b1ae-e093350d852c" >
+			<flow-ref doc:name="salesforce-describe-sObject" doc:id="d3055490-a5b0-4210-ad5c-8a76874569f6" name="salesforce-describe-sObject"/>
+		</foreach>
+	</flow>
+	<flow name="salesforce-describe-sObject" doc:id="eb1dbb5c-31c4-45a1-a889-dd9c7e9499ef" >
+		<set-variable value="#[payload.name]" doc:name="Sobject Name" doc:id="13e4c76a-259a-4bb0-94d0-938e8c2c4d0c" variableName="sobjectName"/>
+		<salesforce:describe-sobject type="#[payload.name]" doc:name="Describe sobject" doc:id="cd1b8dce-39a4-4ac3-bf3b-39f2a45392e4" config-ref="Salesforce_Config"/>
+		<ee:transform doc:name="Filter Location and Address Fields" doc:id="fc211f14-961e-4c40-b554-5f15c219b2ad" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload.fields filter ((value,index) -> (value.fiedType != "LOCATION" and value.fieldType != "ADDRESS"))]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Get Fields" doc:id="e5c76d35-9711-4199-a165-43ace1d18c81" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+
+(payload map {
+	fieldName: $.name	
+}.fieldName  default [] ) joinBy ","]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Create Query" doc:id="388d40e5-f41e-4b45-b6a6-2636e8eae02f" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="query" ><![CDATA[%dw 2.0
+output application/java
+---
+("Select " ++ payload ++ " from " ++ vars.sobjectName) default ""]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="salesforce-create-job" doc:id="29a5326d-77ee-4200-81ab-584fcebf588e" name="salesforce-create-job"/>
+	</flow>
+	<flow name="salesforce-create-job" doc:id="e2052690-3504-4393-83cb-cb034c8c6d7b" >
+		<ee:transform doc:name="Transform Message" doc:id="db42f3bf-f6a8-451b-b25b-4ade7c7dbaa1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	concurrencyMode:"Parallel",
+	contentType:"CSV"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:create-job doc:name="Create job" doc:id="fe1ed172-d4c3-4f4c-a7a6-b5c2c08cc50c" config-ref="Salesforce_Config" operation="query" type="#[vars.sObjectName]">
+			<salesforce:create-job-request ><![CDATA[#[payload]]]></salesforce:create-job-request>
+		</salesforce:create-job>
+		<ee:transform doc:name="Transform Message" doc:id="4354f2bd-f087-4efc-bcc7-672bb034ef2b" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="7ecb5c36-f2c8-44f3-a0d6-32a0b7d8998a" message="Job Id: #[payload.id]"/>
+		<set-variable value="#[payload.id]" doc:name="Job ID" doc:id="fd1f698d-5d62-465b-a013-c7ed4753e3c6" variableName="jobId"/>
+		<salesforce:job-info doc:name="Job info" doc:id="6b6789b9-e4f1-4d25-9f48-23fb6ed5ce49" config-ref="Salesforce_Config" jobId="#[payload.id]"/>
+		<flow-ref doc:name="salesforce-cretae-query-job" doc:id="9c85c811-209c-4631-a117-992f0119f93b" name="salesforce-cretae-query-job"/>
+	</flow>
+	<flow name="salesforce-cretae-query-job" doc:id="44b998db-d8ad-4948-b025-2dfcc6619bac" >
+		<salesforce:create-batch-for-query doc:name="Create batch for query" doc:id="9e8e906e-9481-456b-b5fc-6cfd1fc4270d" config-ref="Salesforce_Config" jobInfoBatchForQuery="#[payload]">
+			<salesforce:batch-query ><![CDATA[#[vars.query]]]></salesforce:batch-query>
+		</salesforce:create-batch-for-query>
+		<logger level="INFO" doc:name="Logger" doc:id="30a615e1-2735-47e3-b3be-199f6cf6eeb1" />
+		<flow-ref doc:name="salesforce-batch-info-status" doc:id="87d31221-ade0-4400-aad2-db5000055aba" name="salesforce-batch-info-status"/>
+	</flow>
+	<flow name="salesforce-batch-info-status" doc:id="e2022fb0-2b5b-4cd6-9b4e-e084adaa6c1c" >
+		<salesforce:batch-info-list doc:name="Batch info list" doc:id="ee81a9e4-c5b0-40a5-831d-e7735eb1870c" config-ref="Salesforce_Config" jobId="#[vars.jobId]"/>
+		<set-variable value="#[sizeOf(payload)]" doc:name="totalFiles" doc:id="95198ab4-3cbc-4692-a693-9072c2fc71a7" variableName="totalFiles"/>
+		<ee:transform doc:name="Transform Message" doc:id="f8c12b1a-432c-4529-88ac-fcd0fcb8dcce" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	inProgress:payload filter $.state == 'InProgress',
+	completed:payload filter $.state == 'Completed'
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="739b00a4-ee49-40b6-bb72-a0b4a8a5e85e" />
+		<choice doc:name="Choice" doc:id="4037ab72-de98-413d-b5b8-64f42039293e" >
+			<when expression="#[sizeOf(payload.completed) == vars.totalFiles]">
+				<logger level="INFO" doc:name="Logger" doc:id="ed018266-b704-45b8-b334-5eef076ec98d" message="Finished"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="5e521ba6-1391-4e61-bf67-12b884b95e61" />
+				<flow-ref doc:name="Flow Reference" doc:id="abe1f964-5ef9-4a4f-9100-c5d04c36b6bf" name="salesforce-batch-info-status"/>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>

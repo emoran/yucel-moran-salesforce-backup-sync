@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+	<flow name="syncFlow" doc:id="969491b9-d630-4f9b-8399-18e3bc272b55" >
+		<scheduler doc:name="Scheduler" doc:id="9d8f62df-6333-459f-be2c-7e8cbd1f2c76" >
+			<scheduling-strategy >
+				<fixed-frequency startDelay="100" timeUnit="DAYS"/>
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Logger" doc:id="3468c3dc-906b-433e-a819-2a2b4fabc933" message="Starting Backup"/>
+		<flow-ref doc:name="salesforce-metadataFlow" doc:id="26c2ab8c-c200-417f-b860-152c05110e8f" name="salesforce-metadataFlow"/>
+	</flow>
+</mule>
