@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:s3="http://www.mulesoft.org/schema/mule/s3" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd">
+	
+	<flow name="amazon-S3-processFlow" doc:id="7dc0c8f1-8e5d-4a9a-993e-9ea1974e5462" >
+		<s3:create-object doc:name="Create object" doc:id="44d11c99-a817-4d45-bd89-572f447dd544" config-ref="Amazon_S3_Configuration" bucketName="emoran-backup" key='#[now() as String {format: "yyyy-MM-dd"} ++ "/" ++ vars.sObjectName as String ++ ".csv"]'/>
+		<logger level="INFO" doc:name="Logger" doc:id="a2a4f414-1a09-4e5b-a38b-d4bec0d36a49" />
+	</flow>
+</mule>

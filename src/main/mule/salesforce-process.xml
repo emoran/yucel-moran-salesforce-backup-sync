@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
-	xmlns="http://www.mulesoft.org/schema/mule/core"
-	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+<mule xmlns:compression="http://www.mulesoft.org/schema/mule/compression" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
-http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="413b0339-fbf2-4c84-bceb-98714c77c424" >
-		<salesforce:basic-connection username="yucelmoran@developer.com" password="nea4fuch!POUF8wee" securityToken="Sv4SAD33k4t2BhTIQYZay5yfC" />
-	</salesforce:sfdc-config>
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/compression http://www.mulesoft.org/schema/mule/compression/current/mule-compression.xsd">
+	
 	<flow name="salesforce-metadataFlow" doc:id="5f672a80-e427-4b37-bd1b-b5d9c57dfa1a" >
 		<salesforce:describe-global doc:name="Describe Objects" doc:id="2c465769-2a21-4d62-ae37-897b1a471010" config-ref="Salesforce_Config"/>
 		<ee:transform doc:name="filter Custom Objects" doc:id="f476e6e7-6956-40a5-b266-c783eb75a75e" >
@@ -110,11 +109,33 @@ output application/java
 		<choice doc:name="Choice" doc:id="4037ab72-de98-413d-b5b8-64f42039293e" >
 			<when expression="#[sizeOf(payload.completed) == vars.totalFiles]">
 				<logger level="INFO" doc:name="Logger" doc:id="ed018266-b704-45b8-b334-5eef076ec98d" message="Finished"/>
+				<set-payload value="#[payload.completed]" doc:name="Set Payload" doc:id="1ac93611-a524-4736-95e7-f3f9a11519f8" />
+				<foreach doc:name="Loop over each batch" doc:id="e1a5c2d5-bbe1-472c-b17b-702291bc5ebc" >
+					<flow-ref doc:name="salesforce-return-files-from-job" doc:id="1643f82d-d181-4a5d-a8ba-6ddc5d079ca6" name="salesforce-return-files-from-job" />
+				</foreach>
 			</when>
 			<otherwise >
-				<logger level="INFO" doc:name="Logger" doc:id="5e521ba6-1391-4e61-bf67-12b884b95e61" />
+				<logger level="INFO" doc:name="Logger" doc:id="5e521ba6-1391-4e61-bf67-12b884b95e61" message="---"/>
 				<flow-ref doc:name="Flow Reference" doc:id="abe1f964-5ef9-4a4f-9100-c5d04c36b6bf" name="salesforce-batch-info-status"/>
 			</otherwise>
 		</choice>
 	</flow>
+	<sub-flow name="salesforce-return-files-from-job" doc:id="fd2b1cb4-548a-42dd-a219-ccd8c9423f79" >
+		<set-variable value="#[payload default null]" doc:name="Set Variable" doc:id="77614802-58ac-4d08-adce-0701da99d56f" variableName="job"/>
+		<salesforce:batch-result-stream doc:name="Batch result stream" doc:id="ce5b5290-3ce1-4833-8880-57e5f49e3d36" config-ref="Salesforce_Config"/>
+		<ee:transform doc:name="Transform Message" doc:id="3b8ab524-849c-44e3-b228-afd8f53ddfea" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+ns ns0 http://www.force.com/2009/06/asyncapi/dataload
+output application/java
+---
+payload.ns0#"result-list".ns0#result]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:query-result-stream doc:name="Query result stream" doc:id="74036da9-66e0-44f2-8099-b2b1f4c6ed0f" config-ref="Salesforce_Config" contentType="CSV" outputMimeType="application/csv" outputEncoding="UTF-8">
+			<salesforce:batch-to-retrieve ><![CDATA[#[vars.job]]]></salesforce:batch-to-retrieve>
+		</salesforce:query-result-stream>
+		<logger level="INFO" doc:name="Logger" doc:id="c51beaba-7c8f-4870-a0f1-acee349955bd" message="test"/>
+		<flow-ref doc:name="amazon-S3-processFlow" doc:id="d8ee1d77-2c14-4f5d-a1ad-f4cb6fec2a0c" name="amazon-S3-processFlow"/>
+	</sub-flow>
 </mule>

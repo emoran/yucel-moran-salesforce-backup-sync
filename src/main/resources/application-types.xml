@@ -1,5 +1,22 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <types:mule xmlns:types="http://www.mulesoft.org/schema/mule/types">
-  <types:catalog/>
+  <types:catalog>
+    <types:type name="XML" format="xml">
+      <types:example format="xml" element="{http://www.force.com/2009/06/asyncapi/dataload}result-list" location="examples/salesforce-result.xml"/>
+    </types:type>
+    <types:type name="CSV" format="java">
+      <types:shape format="raml"><![CDATA[#%RAML 1.0 DataType
+type: string]]></types:shape>
+    </types:type>
+  </types:catalog>
   <types:enrichment select="#388d40e5-f41e-4b45-b6a6-2636e8eae02f"/>
+  <types:enrichment select="#3b8ab524-849c-44e3-b228-afd8f53ddfea">
+    <types:processor-declaration>
+      <types:input-event>
+        <types:message>
+          <types:payload type="XML"/>
+        </types:message>
+      </types:input-event>
+    </types:processor-declaration>
+  </types:enrichment>
 </types:mule>
